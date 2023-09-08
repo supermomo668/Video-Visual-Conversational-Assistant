@@ -4,9 +4,9 @@ from time import time
 # using datetime module
 import datetime;
 
-controller_addr="http://localhost:21001"
-worker_addr="http://localhost:10000"
-image_path = "<add path here>"
+controller_addr="http://localhost:10000"
+worker_addr="http://localhost:40000"
+image_path = "_Video_Pitch_input.jpg"
 
 p = pipeline("automatic-speech-recognition")
 
@@ -97,14 +97,18 @@ def prompt_llava(prompt_message,images,model_name="llava-llama-2-13b-chat-lightn
             output = data["text"].split(conv.sep)[-1]
             final_output = final_output + output
             print(output, end="\r")
-    
+    print("llava out",final_output)
     return final_output
 
-def transcribe(audio,video):
+def transcribe(audio, video):
     duration = time() - start 
     ct = datetime.datetime.now()
     text = p(audio)["text"]
-    return text
+    pil_img = Image.open(image_path)
+    format_images = format_and_get_images([pil_img])
+    llava_output = prompt_llava(transcript_text, format_images)
+    print(f"OUTPUT:\n{llava_output}\n\n")
+    return llava_output
 
 
 with gr.Blocks() as demo:
@@ -115,14 +119,13 @@ with gr.Blocks() as demo:
         out = gr.Textbox()
     btn = gr.Button("Run")
     start = time()
-    btn.click(fn=transcribe, inputs=[audio_inp,video_inp], outputs=out)
+    btn.click(fn=transcribe, inputs=[audio_inp, video_inp], outputs=[out])
     pil_img = Image.open(image_path)
-    transcript_text = out.value
-    format_images = format_and_get_images([pil_img])
+    # transcript_text = out.value
+    # format_images = format_and_get_images([pil_img])
     transcript_text = "what is the product about"
-    llava_output = prompt_llava(transcript_text,format_images)
-    out.value = llava_output
-    print("llava out",llava_output)
+    # llava_output = prompt_llava(transcript_text,format_images)
+    # out.value = llava_output
 
 
 
