@@ -1,0 +1,34 @@
+{
+    "config_version": "1.4",
+    "storage_dir": "/root/mdb_storage",
+    "log": {
+        "level": {
+            "console": "ERROR",
+            "file": "WARNING",
+            "db": "WARNING"
+        }
+    },
+    "debug": false,
+    "integrations": {},
+    "auth": {
+        "username": "mindsdb",
+        "password": "mindsdb123"
+    },
+    "api": {
+        "http": {
+            "host": "0.0.0.0",
+            "port": "47334"
+        },
+        "mysql": {
+            "host": "127.0.0.1",
+            "port": "47335",
+            "database": "mindsdb",
+            "ssl": true
+        },
+        "mongodb": {
+            "host": "127.0.0.1",
+            "port": "47336",
+            "database": "mindsdb"
+        }
+    }
+}
