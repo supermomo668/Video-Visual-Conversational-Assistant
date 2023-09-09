@@ -1,0 +1,6 @@
+[submodule "TeViT"]
+	path = TeViT
+	url = https://github.com/hustvl/TeViT.git
+[submodule "LLaVA"]
+	path = LLaVA
+	url = https://github.com/haotian-liu/LLaVA.git
