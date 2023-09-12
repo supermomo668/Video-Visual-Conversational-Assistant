@@ -4,3 +4,6 @@
 [submodule "LLaVA"]
 	path = LLaVA
 	url = https://github.com/haotian-liu/LLaVA.git
+[submodule "grounded-video-description"]
+	path = grounded-video-description
+	url = git@github.com:supermomo668/grounded-video-description.git
