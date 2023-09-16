@@ -68,3 +68,18 @@ Versions:
     for transcription in transcriptions:
         print(transcription)
     ```
+
+## Pinging the LLava worker 
+```
+headers = {"User-Agent": "LLaVA Client"} 
+    pload = {
+        "model": model_name,
+        "prompt": prompt,
+        "max_new_tokens": max_new_tokens,
+        "temperature": 0.7,
+        "stop": conv.sep,
+        "images": images
+    }
+    response = requests.post(worker_addr + "/worker_generate_stream", headers=headers,
+            json=pload, stream=True)
+```
