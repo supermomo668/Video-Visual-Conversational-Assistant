@@ -153,9 +153,11 @@ def add_text(state, text, image, image_process_mode, request: gr.Request):
         if '<image>' not in text:
             # text = '<Image><image></Image>' + text
             text = text + '\n<image>'
+        # Modify text variable text -> (text, image, image_process_mode)
         text = (text, image, image_process_mode)
         if len(state.get_images(return_pil=True)) > 0:
             state = default_conversation.copy()
+    
     state.append_message(state.roles[0], text)
     state.append_message(state.roles[1], None)
     state.skip_next = False
