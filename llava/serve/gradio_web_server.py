@@ -6,6 +6,7 @@ import time
 
 import gradio as gr
 import requests
+from ..putils.print import print_pload
 
 from llava.conversation import (default_conversation, conv_templates,
                                    SeparatorStyle)
@@ -17,7 +18,7 @@ import hashlib
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
-headers = {"User-Agent": "LLaVA Client"}
+headers = {"User-Agent": "EmPBot:: Client"}
 
 no_change_btn = gr.Button.update()
 enable_btn = gr.Button.update(interactive=True)
@@ -164,7 +165,8 @@ def add_text(state, text, image, image_process_mode, request: gr.Request):
     return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
 
 
-def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request):
+def http_bot(
+    state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request):
     logger.info(f"http_bot. ip: {request.client.host}")
     start_tstamp = time.time()
     model_name = model_selector
@@ -241,6 +243,7 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
         "stop": state.sep if state.sep_style in [SeparatorStyle.SINGLE, SeparatorStyle.MPT] else state.sep2,
         "images": f'List of {len(state.get_images())} images: {all_image_hash}',
     }
+    logger.info(print_pload(pload))
     logger.info(f"==== request ====\n{pload}")
 
     pload['images'] = state.get_images()
@@ -250,8 +253,10 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
 
     try:
         # Stream output
-        response = requests.post(worker_addr + "/worker_generate_stream",
-            headers=headers, json=pload, stream=True, timeout=10)
+        response = requests.post(
+            worker_addr + "/worker_generate_stream",
+            headers=headers, json=pload, stream=True, timeout=10
+        )
         for chunk in response.iter_lines(decode_unicode=False, delimiter=b"\0"):
             if chunk:
                 data = json.loads(chunk.decode())
@@ -290,8 +295,8 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
         fout.write(json.dumps(data) + "\n")
 
 title_markdown = ("""
-# 🌋 LLaVA: Large Language and Vision Assistant
-[[Project Page]](https://llava-vl.github.io) [[Paper]](https://arxiv.org/abs/2304.08485) [[Code]](https://github.com/haotian-liu/LLaVA) [[Model]](https://huggingface.co/liuhaotian/LLaVA-13b-delta-v0)
+# 🌋 EmPBot:: Present Visual Audio Action Agent
+[[Project Page]](https://llava-vl.github.io) [[Paper]](https://arxiv.org/abs/2304.08485)  [[Model]](https://huggingface.co/liuhaotian/LLaVA-13b-delta-v0)
 """)
 
 tos_markdown = ("""
@@ -310,8 +315,12 @@ The service is a research preview intended for non-commercial use only, subject 
 
 
 def build_demo(embed_mode):
-    textbox = gr.Textbox(show_label=False, placeholder="Enter text and press ENTER", visible=False, container=False)
-    with gr.Blocks(title="LLaVA", theme=gr.themes.Base()) as demo:
+    textbox = gr.Textbox(
+        show_label=False, placeholder="Enter text and press ENTER", visible=False, container=False)
+    labelbox = gr.Textbox(
+        show_label=False, placeholder="Ragg-ed Pipeline", visible=False, container=False)
+    audiobox = gr.Audio(source="microphone")
+    with gr.Blocks(title="EmPBot::", theme=gr.themes.Base()) as demo:
         state = gr.State()
 
         if not embed_mode:
@@ -326,7 +335,7 @@ def build_demo(embed_mode):
                         interactive=True,
                         show_label=False,
                         container=False)
-
+                videobox = gr.Video(source='upload', format='mp4')
                 imagebox = gr.Image(type="pil")
                 image_process_mode = gr.Radio(
                     ["Crop", "Resize", "Pad"],
@@ -345,10 +354,13 @@ def build_demo(embed_mode):
                     max_output_tokens = gr.Slider(minimum=0, maximum=1024, value=512, step=64, interactive=True, label="Max output tokens",)
 
             with gr.Column(scale=6):
-                chatbot = gr.Chatbot(elem_id="chatbot", label="LLaVA Chatbot", visible=False, height=550)
+                chatbot = gr.Chatbot(elem_id="chatbot", label="EmPBot::", visible=False, height=550)
                 with gr.Row():
-                    with gr.Column(scale=8):
+                    with gr.Column(scale=4):
                         textbox.render()
+                        audiobox.render()
+                    with gr.Column(scale=4):
+                        labelbox.render()
                     with gr.Column(scale=1, min_width=60):
                         submit_btn = gr.Button(value="Submit", visible=False)
                 with gr.Row(visible=False) as button_row:
