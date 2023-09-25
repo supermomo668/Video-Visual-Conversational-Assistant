@@ -430,7 +430,13 @@ headers = {"User-Agent": "LLaVA Client"}
         "stop": conv.sep,
         "images": images
     }
+<<<<<<< HEAD
 response = requests.post(worker_addr + "/worker_generate_stream", headers=headers,
         json=pload, stream=True)
 ```
 >>>>>>> f84372a8cdbbfce355d349b03a1db84ebab45c48
+=======
+    response = requests.post(worker_addr + "/worker_generate_stream", headers=headers,
+            json=pload, stream=True)
+```
+>>>>>>> hackathon
