@@ -55,6 +55,7 @@ function() {
     }
 """
 
+# Interface Update code
 
 def load_demo(url_params, request: gr.Request):
     logger.info(f"load_demo. ip: {request.client.host}. params: {url_params}")
@@ -166,7 +167,11 @@ def add_text(state, text, image, image_process_mode, request: gr.Request):
 
 
 def http_bot(
-    state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request):
+    state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request
+    ):
+    """
+    Infrence endpoint
+    """
     logger.info(f"http_bot. ip: {request.client.host}")
     start_tstamp = time.time()
     model_name = model_selector
@@ -233,7 +238,7 @@ def http_bot(
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             image.save(filename)
 
-    # Make requests
+    # Make requests to model endpoint
     pload = {
         "model": model_name,
         "prompt": prompt,
@@ -296,7 +301,6 @@ def http_bot(
 
 title_markdown = ("""
 # 🌋 EmPBot:: Present Visual Audio Action Agent
-[[Project Page]](https://llava-vl.github.io) [[Paper]](https://arxiv.org/abs/2304.08485)  [[Model]](https://huggingface.co/liuhaotian/LLaVA-13b-delta-v0)
 """)
 
 tos_markdown = ("""
@@ -315,11 +319,18 @@ The service is a research preview intended for non-commercial use only, subject 
 
 
 def build_demo(embed_mode):
-    textbox = gr.Textbox(
-        show_label=False, placeholder="Enter text and press ENTER", visible=False, container=False)
-    labelbox = gr.Textbox(
-        show_label=False, placeholder="Ragg-ed Pipeline", visible=False, container=False)
-    audiobox = gr.Audio(source="microphone")
+    urlbox = gr.Textbox(
+        show_label=False, placeholder="Enter your URL and press ENTER", 
+        visible=True, container=False)
+    contextbox = gr.Textbox(
+        show_label=False, placeholder="Extraction Pipeline", 
+        visible=True, container=False, editable=False, scrollbars=True)
+    audiobox = gr.Textbox(
+        show_label=False, placeholder="Audio will show here", 
+        visible=True, container=False, editable=False, scrollbars=True)
+    audiorecorder = gr.Audio(
+        source="microphone", label='Recorder')
+    # [Definition: Demo Application]
     with gr.Blocks(title="EmPBot::", theme=gr.themes.Base()) as demo:
         state = gr.State()
 
@@ -346,7 +357,7 @@ def build_demo(embed_mode):
                 gr.Examples(examples=[
                     [f"{cur_dir}/examples/extreme_ironing.jpg", "What is unusual about this image?"],
                     [f"{cur_dir}/examples/waterview.jpg", "What are the things I should be cautious about when I visit here?"],
-                ], inputs=[imagebox, textbox])
+                ], inputs=[imagebox, audiobox])
 
                 with gr.Accordion("Parameters", open=False, visible=False) as parameter_row:
                     temperature = gr.Slider(minimum=0.0, maximum=1.0, value=0.2, step=0.1, interactive=True, label="Temperature",)
@@ -356,12 +367,15 @@ def build_demo(embed_mode):
             with gr.Column(scale=6):
                 chatbot = gr.Chatbot(elem_id="chatbot", label="EmPBot::", visible=False, height=550)
                 with gr.Row():
-                    with gr.Column(scale=4):
-                        textbox.render()
-                        audiobox.render()
-                    with gr.Column(scale=4):
-                        labelbox.render()
-                    with gr.Column(scale=1, min_width=60):
+                    with gr.Column(scale=2):
+                        urlbox.render()
+                        audiorecorder.render()
+                    with gr.Column(scale=4, min_width=70, min_height=250):
+                        with gr.Row(scale=1):
+                            contextbox.render()
+                        with gr.Row(scale=1):
+                            audiobox.render()
+                    with gr.Column(scale=1, min_width=40):
                         submit_btn = gr.Button(value="Submit", visible=False)
                 with gr.Row(visible=False) as button_row:
                     upvote_btn = gr.Button(value="👍  Upvote", interactive=False)
@@ -379,31 +393,42 @@ def build_demo(embed_mode):
         # Register listeners
         btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, clear_btn]
         upvote_btn.click(upvote_last_response,
-            [state, model_selector], [textbox, upvote_btn, downvote_btn, flag_btn])
+            [state, model_selector], [audiobox, upvote_btn, downvote_btn, flag_btn])
         downvote_btn.click(downvote_last_response,
-            [state, model_selector], [textbox, upvote_btn, downvote_btn, flag_btn])
+            [state, model_selector], [audiobox, upvote_btn, downvote_btn, flag_btn])
         flag_btn.click(flag_last_response,
-            [state, model_selector], [textbox, upvote_btn, downvote_btn, flag_btn])
+            [state, model_selector], [audiobox, upvote_btn, downvote_btn, flag_btn])
         regenerate_btn.click(regenerate, [state, image_process_mode],
-            [state, chatbot, textbox, imagebox] + btn_list).then(
+            [state, chatbot, audiobox, imagebox] + btn_list).then(
             http_bot, [state, model_selector, temperature, top_p, max_output_tokens],
             [state, chatbot] + btn_list)
-        clear_btn.click(clear_history, None, [state, chatbot, textbox, imagebox] + btn_list)
-
-        textbox.submit(add_text, [state, textbox, imagebox, image_process_mode], [state, chatbot, textbox, imagebox] + btn_list
-            ).then(http_bot, [state, model_selector, temperature, top_p, max_output_tokens],
-                   [state, chatbot] + btn_list)
-        submit_btn.click(add_text, [state, textbox, imagebox, image_process_mode], [state, chatbot, textbox, imagebox] + btn_list
-            ).then(http_bot, [state, model_selector, temperature, top_p, max_output_tokens],
-                   [state, chatbot] + btn_list)
-
+        clear_btn.click(clear_history, None, [state, chatbot, audiobox, imagebox] + btn_list)
+        # button: trigger function
+        audiobox.submit(
+            add_text, 
+            [state, audiobox, imagebox, image_process_mode], 
+            [state, chatbot, audiobox, imagebox] + btn_list
+            ).then(http_bot, 
+                   [state, model_selector, temperature, top_p, max_output_tokens],
+                   [state, chatbot] + btn_list
+            )
+        submit_btn.click(
+            add_text, 
+            [state, audiobox, imagebox, image_process_mode], 
+            [state, chatbot, audiobox, imagebox] + btn_list
+            ).then(http_bot, 
+                   [state, model_selector, temperature, top_p, max_output_tokens],
+                   [state, chatbot] + btn_list
+            )
+        # Load demo here: mainly to refresh the model list
         if args.model_list_mode == "once":
-            demo.load(load_demo, [url_params], [state, model_selector,
-                chatbot, textbox, submit_btn, button_row, parameter_row],
-                _js=get_window_url_params)
+            demo.load(
+                load_demo, [url_params], 
+                [state, model_selector, chatbot, audiobox, submit_btn, button_row, parameter_row], _js=get_window_url_params
+            )
         elif args.model_list_mode == "reload":
             demo.load(load_demo_refresh_model_list, None, [state, model_selector,
-                chatbot, textbox, submit_btn, button_row, parameter_row])
+                chatbot, audiobox, submit_btn, button_row, parameter_row])
         else:
             raise ValueError(f"Unknown model list mode: {args.model_list_mode}")
 
@@ -428,6 +453,7 @@ if __name__ == "__main__":
 
     logger.info(args)
     demo = build_demo(args.embed)
-    demo.queue(concurrency_count=args.concurrency_count, status_update_rate=10,
-               api_open=False).launch(
-        server_name=args.host, server_port=args.port, share=args.share)
+    demo.queue(
+        concurrency_count=args.concurrency_count, status_update_rate=15,
+               api_open=True).launch(
+        server_name=args.host, server_port=args.port, share=args.share, debug=True)
