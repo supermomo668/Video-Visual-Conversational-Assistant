@@ -6,6 +6,7 @@ import time
 
 import gradio as gr
 import requests
+from ..putils.print import print_pload
 
 from llava.conversation import (default_conversation, conv_templates,
                                    SeparatorStyle)
@@ -17,7 +18,7 @@ import hashlib
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
-headers = {"User-Agent": "LLaVA Client"}
+headers = {"User-Agent": "EmPBot:: Client"}
 
 no_change_btn = gr.Button.update()
 enable_btn = gr.Button.update(interactive=True)
@@ -54,6 +55,7 @@ function() {
     }
 """
 
+# Interface Update code
 
 def load_demo(url_params, request: gr.Request):
     logger.info(f"load_demo. ip: {request.client.host}. params: {url_params}")
@@ -153,16 +155,23 @@ def add_text(state, text, image, image_process_mode, request: gr.Request):
         if '<image>' not in text:
             # text = '<Image><image></Image>' + text
             text = text + '\n<image>'
+        # Modify text variable text -> (text, image, image_process_mode)
         text = (text, image, image_process_mode)
         if len(state.get_images(return_pil=True)) > 0:
             state = default_conversation.copy()
+    
     state.append_message(state.roles[0], text)
     state.append_message(state.roles[1], None)
     state.skip_next = False
     return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
 
 
-def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request):
+def http_bot(
+    state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request
+    ):
+    """
+    Infrence endpoint
+    """
     logger.info(f"http_bot. ip: {request.client.host}")
     start_tstamp = time.time()
     model_name = model_selector
@@ -229,7 +238,7 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             image.save(filename)
 
-    # Make requests
+    # Make requests to model endpoint
     pload = {
         "model": model_name,
         "prompt": prompt,
@@ -239,6 +248,7 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
         "stop": state.sep if state.sep_style in [SeparatorStyle.SINGLE, SeparatorStyle.MPT] else state.sep2,
         "images": f'List of {len(state.get_images())} images: {all_image_hash}',
     }
+    logger.info(print_pload(pload))
     logger.info(f"==== request ====\n{pload}")
 
     pload['images'] = state.get_images()
@@ -248,8 +258,10 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
 
     try:
         # Stream output
-        response = requests.post(worker_addr + "/worker_generate_stream",
-            headers=headers, json=pload, stream=True, timeout=10)
+        response = requests.post(
+            worker_addr + "/worker_generate_stream",
+            headers=headers, json=pload, stream=True, timeout=10
+        )
         for chunk in response.iter_lines(decode_unicode=False, delimiter=b"\0"):
             if chunk:
                 data = json.loads(chunk.decode())
@@ -288,8 +300,7 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
         fout.write(json.dumps(data) + "\n")
 
 title_markdown = ("""
-# 🌋 LLaVA: Large Language and Vision Assistant
-[[Project Page]](https://llava-vl.github.io) [[Paper]](https://arxiv.org/abs/2304.08485) [[Code]](https://github.com/haotian-liu/LLaVA) [[Model]](https://huggingface.co/liuhaotian/LLaVA-13b-delta-v0)
+# 🌋 EmPBot:: Present Visual Audio Action Agent
 """)
 
 tos_markdown = ("""
@@ -308,12 +319,19 @@ The service is a research preview intended for non-commercial use only, subject 
 
 
 def build_demo(embed_mode):
-    textbox = gr.Textbox(
-        show_label=False, placeholder="Enter text and press ENTER", 
-        visible=False, container=False)
-    htmlbox = gr.Textbox(
-        show_label=False, placeholder="Extracted external data sources", visible=False, container=False, interactive=False)
-    with gr.Blocks(title="LLaVA", theme=gr.themes.Base()) as demo:
+    urlbox = gr.Textbox(
+        show_label=False, placeholder="Enter your URL and press ENTER", 
+        visible=True, container=False)
+    contextbox = gr.Textbox(
+        show_label=False, placeholder="Extraction Pipeline", 
+        visible=True, container=False, editable=False, scrollbars=True)
+    audiobox = gr.Textbox(
+        show_label=False, placeholder="Audio will show here", 
+        visible=True, container=False, editable=False, scrollbars=True)
+    audiorecorder = gr.Audio(
+        source="microphone", label='Recorder')
+    # [Definition: Demo Application]
+    with gr.Blocks(title="EmPBot::", theme=gr.themes.Base()) as demo:
         state = gr.State()
 
         if not embed_mode:
@@ -328,7 +346,7 @@ def build_demo(embed_mode):
                         interactive=True,
                         show_label=False,
                         container=False)
-
+                videobox = gr.Video(source='upload', format='mp4')
                 imagebox = gr.Image(type="pil")
                 image_process_mode = gr.Radio(
                     ["Crop", "Resize", "Pad"],
@@ -339,7 +357,7 @@ def build_demo(embed_mode):
                 gr.Examples(examples=[
                     [f"{cur_dir}/examples/extreme_ironing.jpg", "What is unusual about this image?"],
                     [f"{cur_dir}/examples/waterview.jpg", "What are the things I should be cautious about when I visit here?"],
-                ], inputs=[imagebox, textbox])
+                ], inputs=[imagebox, audiobox])
 
                 with gr.Accordion("Parameters", open=False, visible=False) as parameter_row:
                     temperature = gr.Slider(minimum=0.0, maximum=1.0, value=0.2, step=0.1, interactive=True, label="Temperature",)
@@ -347,13 +365,17 @@ def build_demo(embed_mode):
                     max_output_tokens = gr.Slider(minimum=0, maximum=1024, value=512, step=64, interactive=True, label="Max output tokens",)
 
             with gr.Column(scale=6):
-                chatbot = gr.Chatbot(elem_id="chatbot", label="LLaVA Chatbot", visible=False, height=550)
+                chatbot = gr.Chatbot(elem_id="chatbot", label="EmPBot::", visible=False, height=550)
                 with gr.Row():
-                    with gr.Column(scale=4):
-                        textbox.render()
-                    with gr.Column(scale=4):
-                        htmlbox.render()
-                    with gr.Column(scale=1, min_width=60):
+                    with gr.Column(scale=2):
+                        urlbox.render()
+                        audiorecorder.render()
+                    with gr.Column(scale=4, min_width=70, min_height=250):
+                        with gr.Row(scale=1):
+                            contextbox.render()
+                        with gr.Row(scale=1):
+                            audiobox.render()
+                    with gr.Column(scale=1, min_width=40):
                         submit_btn = gr.Button(value="Submit", visible=False)
                 with gr.Row(visible=False) as button_row:
                     upvote_btn = gr.Button(value="👍  Upvote", interactive=False)
@@ -371,31 +393,42 @@ def build_demo(embed_mode):
         # Register listeners
         btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, clear_btn]
         upvote_btn.click(upvote_last_response,
-            [state, model_selector], [textbox, upvote_btn, downvote_btn, flag_btn])
+            [state, model_selector], [audiobox, upvote_btn, downvote_btn, flag_btn])
         downvote_btn.click(downvote_last_response,
-            [state, model_selector], [textbox, upvote_btn, downvote_btn, flag_btn])
+            [state, model_selector], [audiobox, upvote_btn, downvote_btn, flag_btn])
         flag_btn.click(flag_last_response,
-            [state, model_selector], [textbox, upvote_btn, downvote_btn, flag_btn])
+            [state, model_selector], [audiobox, upvote_btn, downvote_btn, flag_btn])
         regenerate_btn.click(regenerate, [state, image_process_mode],
-            [state, chatbot, textbox, imagebox] + btn_list).then(
+            [state, chatbot, audiobox, imagebox] + btn_list).then(
             http_bot, [state, model_selector, temperature, top_p, max_output_tokens],
             [state, chatbot] + btn_list)
-        clear_btn.click(clear_history, None, [state, chatbot, textbox, imagebox] + btn_list)
-
-        textbox.submit(add_text, [state, textbox, imagebox, image_process_mode], [state, chatbot, textbox, imagebox] + btn_list
-            ).then(http_bot, [state, model_selector, temperature, top_p, max_output_tokens],
-                   [state, chatbot] + btn_list)
-        submit_btn.click(add_text, [state, textbox, imagebox, image_process_mode], [state, chatbot, textbox, imagebox] + btn_list
-            ).then(http_bot, [state, model_selector, temperature, top_p, max_output_tokens],
-                   [state, chatbot] + btn_list)
-
+        clear_btn.click(clear_history, None, [state, chatbot, audiobox, imagebox] + btn_list)
+        # button: trigger function
+        audiobox.submit(
+            add_text, 
+            [state, audiobox, imagebox, image_process_mode], 
+            [state, chatbot, audiobox, imagebox] + btn_list
+            ).then(http_bot, 
+                   [state, model_selector, temperature, top_p, max_output_tokens],
+                   [state, chatbot] + btn_list
+            )
+        submit_btn.click(
+            add_text, 
+            [state, audiobox, imagebox, image_process_mode], 
+            [state, chatbot, audiobox, imagebox] + btn_list
+            ).then(http_bot, 
+                   [state, model_selector, temperature, top_p, max_output_tokens],
+                   [state, chatbot] + btn_list
+            )
+        # Load demo here: mainly to refresh the model list
         if args.model_list_mode == "once":
-            demo.load(load_demo, [url_params], [state, model_selector,
-                chatbot, textbox, submit_btn, button_row, parameter_row],
-                _js=get_window_url_params)
+            demo.load(
+                load_demo, [url_params], 
+                [state, model_selector, chatbot, audiobox, submit_btn, button_row, parameter_row], _js=get_window_url_params
+            )
         elif args.model_list_mode == "reload":
             demo.load(load_demo_refresh_model_list, None, [state, model_selector,
-                chatbot, textbox, submit_btn, button_row, parameter_row])
+                chatbot, audiobox, submit_btn, button_row, parameter_row])
         else:
             raise ValueError(f"Unknown model list mode: {args.model_list_mode}")
 
@@ -420,9 +453,7 @@ if __name__ == "__main__":
 
     logger.info(args)
     demo = build_demo(args.embed)
-    demo.queue(concurrency_count=args.concurrency_count, 
-               status_update_rate=10,
-               api_open=False
-        ).launch(
-            server_name=args.host, server_port=args.port, share=args.share
-    )
+    demo.queue(
+        concurrency_count=args.concurrency_count, status_update_rate=15,
+               api_open=True).launch(
+        server_name=args.host, server_port=args.port, share=args.share, debug=True)

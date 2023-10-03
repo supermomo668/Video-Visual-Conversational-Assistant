@@ -1,18 +1,15 @@
 from PIL import Image
 from io import BytesIO
-import base64, whisper
+import base64
 
 import torch
 from transformers import StoppingCriteria
 from llava.constants import IMAGE_TOKEN_INDEX
 
-def transcribe_audio(audio_file, model="base"):
-    model = whisper.load_model(model)
-    result = model.transcribe(audio_file)
-    return result["text"]
 
 def load_image_from_base64(image):
     return Image.open(BytesIO(base64.b64decode(image)))
+
 
 def process_images(images, image_processor, model_cfg):
     return image_processor(images, return_tensors='pt')['pixel_values']

@@ -114,6 +114,7 @@ class Conversation:
                     import base64
                     from io import BytesIO
                     from PIL import Image
+                    # unpack text, image here
                     msg, image, image_process_mode = msg
                     if image_process_mode == "Pad":
                         def expand2square(pil_img, background_color=(122, 116, 104)):
