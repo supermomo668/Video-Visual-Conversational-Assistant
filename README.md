@@ -439,7 +439,3 @@ headers = {"User-Agent": "LLaVA Client"}
 response = requests.post(worker_addr + "/worker_generate_stream", headers=headers,
         json=pload, stream=True)
 ```
-=======
-    response = requests.post(worker_addr + "/worker_generate_stream", headers=headers,
-            json=pload, stream=True)
-```
